@@ -18,12 +18,7 @@ _templateStoryMapId = "08ba6bd499c84a5d8eb23aaf266c5bd0"
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
-    #serverGens=[46245119,46245124]
-    bodyObject = {'payload': ['[{"name":"EGT20_SSS_InputWebhook","layerId":0,"orgId":"emS4w7iyWEQiulAb","serviceName":"SelfServiceStoryMapping2020_Input","lastUpdatedTime":1598384867282,"changesUrl":"https://services.arcgis.com/emS4w7iyWEQiulAb/arcgis/rest/services/SelfServiceStoryMapping2020_Input/FeatureServer/extractChanges?serverGens=[46245100,46245124]&async=true&returnUpdates=false&returnDeletes=false","events":["FeaturesCreated","AttachmentsCreated"]}]']}
-    #ParseBody(bodyObject)
-    tempFeature = {'geometry': {'x': 630067.204695026,'y': 6939551.364641505},'attributes': {'OBJECTID': 29,'GlobalID': 'EC3DDD1C-03A7-4076-B3FA-EA84C74F1294','CreationDate': 1598384913221,'Creator': '','EditDate': 1598384913221,'Editor': '','NAME': 'Maarten van Hulzen','Description': 'Geweldige Sessie','Email': 'mvanhulzen@esri.nl','Username': 'mvanhulzendev','Status': 'New','Provincie': None}}
-    GenerateStoryMapForFeature(tempFeature)
-
+    #not used
 
 
 def ParseBody(body):
