@@ -1,0 +1,33 @@
+{
+    "operationalLayers": [
+        {
+            "id": "Gemeentegrenzen_2019_kustlijn_8248",
+            "layerType": "ArcGISFeatureLayer",
+            "url": "https://services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Gemeentegrenzen_2019_kustlijn/FeatureServer/0",
+            "visibility": true,
+            "opacity": 1,
+            "title": "Gemeentegrenzen mjagtDemo",
+            "itemId": "e1f0dd70abcb4fceabbc43412e43ad4b"
+        }
+    ],
+    "baseMap": {
+        "baseMapLayers": [
+            {
+                "id": "defaultBasemap",
+                "layerType": "ArcGISTiledMapServiceLayer",
+                "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
+                "visibility": true,
+                "opacity": 1,
+                "title": "Topographic"
+            }
+        ],
+        "title": "Topographic"
+    },
+    "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+    },
+    "authoringApp": "WebMapViewer",
+    "authoringAppVersion": "8.2",
+    "version": "2.17"
+}
