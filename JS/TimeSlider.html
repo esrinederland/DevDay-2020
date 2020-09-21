@@ -1,0 +1,393 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>GIS Tech 2020: TimeSlider widget 4.16</title>
+    <link rel="stylesheet"
+          href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.2.5/css/calcite-web.min.css" />
+    <link rel="stylesheet"
+          href="https://js.arcgis.com/4.16/esri/themes/dark/main.css" />
+
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+    
+    <script src="https://js.arcgis.com/4.16/"></script>
+
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #header {
+            height: 60px;
+            padding: 10px 0px 0px 15px;
+        }
+
+        .footer {
+            padding-top: 0px;
+        }
+
+        #bodywrapper {
+            display: block;
+            height: 100%;
+        }
+
+        #sidepanel {
+            padding: 10px;
+            /* background-color: #FF9300; */
+            width: 300px;
+        }
+
+        #timeSlider {
+            position: absolute;
+            left: 100px;
+            right: 100px;
+            bottom: 20px;
+        }
+
+        #titleDiv {
+            padding: 10px;
+            font-weight: 36;
+            text-align: center;
+        }
+
+        #infoDiv {
+            height: 120px;
+            padding: 10px;
+            width: 280px;
+        }
+
+            #infoDiv span {
+                color: #f9c653;
+                font-size: 12pt;
+                font-weight: bolder;
+            }
+    </style>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/ImageryLayer",
+            "esri/layers/FeatureLayer",
+            "esri/widgets/TimeSlider",
+            "esri/widgets/Expand",
+            "esri/widgets/Legend"
+        ], function (Map, MapView, ImageryLayer, FeatureLayer, TimeSlider, Expand, Legend) {
+            let layerView;
+            const layer = new FeatureLayer({
+                url: "https://services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/historische_ndw_incidenten/FeatureServer",
+                outFields: ["*"],
+            });
+
+            const map = new Map({
+                basemap: "dark-gray-vector",
+                layers: [layer]
+            });
+
+            const view = new MapView({
+                map: map,
+                container: "viewDiv",
+                extent: {
+                    spatialReference: {
+                        wkid: 102100
+                    },
+                    xmax: 556782.71,
+                    xmin: 531787.80,
+                    ymax: 6880042.38,
+                    ymin: 6859022.19
+                }
+            });
+
+            // time slider widget initialization
+            const timeSlider = new TimeSlider({
+                container: "timeSlider",
+                mode: "time-window",
+                view: view
+            });
+            view.ui.add(timeSlider, "manual");
+
+            let chart;
+
+            const countItems = {
+                onStatisticField: "recordType",
+                outStatisticFieldName: "item_count",
+                statisticType: "count"
+            };
+            const num_VehicleObstruction = {
+                onStatisticField: "CASE WHEN recordType = 'VehicleObstruction' THEN 1 ELSE 0 END",
+                outStatisticFieldName: "num_VehicleObstruction",
+                statisticType: "sum"
+            };
+            const num_Accident = {
+                onStatisticField: "CASE WHEN recordType = 'Accident' THEN 1 ELSE 0 END",
+                outStatisticFieldName: "num_Accident",
+                statisticType: "sum"
+            };
+            const num_GeneralObstruction = {
+                onStatisticField: "CASE WHEN recordType = 'GeneralObstruction' THEN 1 ELSE 0 END",
+                outStatisticFieldName: "num_GeneralObstruction",
+                statisticType: "sum"
+            };
+
+
+            view.whenLayerView(layer).then(function (lv) {
+                layerView = lv;
+                const fullTimeExtent = layer.timeInfo.fullTimeExtent;
+
+                // set up time slider properties
+                timeSlider.fullTimeExtent = fullTimeExtent;
+                timeSlider.stops = {
+                    interval: {
+                        value: 1,
+                        unit: "days"
+                    }
+                };
+
+                view.watch("stationary", function (value) {
+                    if (value) {
+                        layerView.effect = {
+                            filter: {
+                                timeExtent: timeSlider.timeExtent,
+                                geometry: view.extent
+                            },
+
+                        };
+
+                        const statQuery = layerView.effect.filter.createQuery();
+                        statQuery.outStatistics = [
+                            countItems,
+                            num_VehicleObstruction,
+                            num_Accident,
+                            num_GeneralObstruction
+                        ];
+                        layer
+                            .queryFeatures(statQuery)
+                            .then(function (result) {
+                                updateChart(result);
+                                statsDiv.innerHTML = "";
+                                if (result.error) {
+                                    return result.error;
+                                } else {
+                                    if (result.features.length >= 1) {
+
+                                        var yearHtml =
+                                            "Binnen dit extent zijn er <span>" +
+                                            result.features[0].attributes["item_count"] +
+                                            "</span> incidenten geweest tussen " +
+                                            timeSlider.timeExtent.start.toLocaleDateString() +
+                                            " - " +
+                                            timeSlider.timeExtent.end.toLocaleDateString() +
+                                            " geweest.<br/>";
+
+
+                                        statsDiv.innerHTML = yearHtml;
+
+                                    }
+                                }
+                            })
+                            .catch(function (error) {
+                                console.log(error);
+                            });
+                    }
+                });
+            });
+
+            const legend = new Legend({
+                view: view
+            });
+            const legendExpand = new Expand({
+                expandIconClass: "esri-icon-collection",
+                expandTooltip: "Legend",
+                view: view,
+                expanded: true,
+                content: legend,
+                group: "top-left"
+            });
+            view.ui.add(legendExpand, "top-left");
+
+            const statsDiv = document.getElementById("statsDiv");
+            const infoDiv = document.getElementById("infoDiv");
+            const infoDivExpand = new Expand({
+                collapsedIconClass: "esri-icon-collapse",
+                expandIconClass: "esri-icon-expand",
+                expandTooltip: "Expand incidenten info",
+                view: view,
+                content: infoDiv,
+                expanded: true
+            });
+            view.ui.add(infoDivExpand, "top-right");
+
+            timeSlider.watch("timeExtent", function () {
+                layerView.effect = {
+                    filter: {
+                        timeExtent: timeSlider.timeExtent,
+                        geometry: view.extent
+                    },
+                };
+
+                const statQuery = layerView.effect.filter.createQuery();
+                statQuery.outStatistics = [
+                    countItems,
+                    num_VehicleObstruction,
+                    num_Accident,
+                    num_GeneralObstruction
+                ];
+
+                layer
+                    .queryFeatures(statQuery)
+                    .then(function (result) {
+                        updateChart(result);
+                        statsDiv.innerHTML = "";
+                        if (result.error) {
+                            return result.error;
+                        } else {
+                            if (result.features.length >= 1) {
+
+                                var yearHtml =
+                                    "Binnen dit extent zijn er <span>" +
+                                    result.features[0].attributes["item_count"] +
+                                    "</span> incidenten geweest tussen " +
+                                    timeSlider.timeExtent.start.toLocaleDateString() +
+                                    " - " +
+                                    timeSlider.timeExtent.end.toLocaleDateString() +
+                                    " geweest.<br/>";
+
+                                statsDiv.innerHTML = yearHtml;
+                            }
+                        }
+                    })
+                    .catch(function (error) {
+                        console.log(error);
+                    });
+            });
+
+            var temp = document.getElementsByTagName("template")[0];
+            var clon = temp.content.cloneNode(true);
+            const newDiv2 = document.createElement("div");
+            newDiv2.appendChild(clon);
+            var expandCode = new Expand({
+                view: view,
+                content: newDiv2,
+                expanded: false,
+                group: "top-left"
+            });
+
+            // Add the widget to the top-right corner of the view
+            view.ui.add(expandCode, {
+                position: "top-left"
+            });
+
+
+            function updateChart(newData) {
+
+                const num_Accident = newData.features[0].attributes.num_Accident;
+                const num_GeneralObstruction = newData.features[0].attributes.num_GeneralObstruction;
+                const num_VehicleObstruction = newData.features[0].attributes.num_VehicleObstruction;
+
+                if (!chart) {
+                    // Get the canvas element and render the chart in it
+                    const canvasElement = document.getElementById("chart");
+
+                    chart = new Chart(canvasElement.getContext("2d"), {
+                        type: "doughnut",
+                        data: {
+                            datasets: [{
+                                data: [
+                                    num_Accident,
+                                    num_GeneralObstruction,
+                                    num_VehicleObstruction,
+                                ],
+                                backgroundColor: [
+                                    'rgb(255, 99, 132)',
+                                    '#6A5ACD',
+                                    'rgb(255, 205, 86)',
+                                ],
+                                label: 'Dataset 1'
+                            }],
+                            labels: [
+                                'Ongeval',
+                                'Algemene belemmering',
+                                'Belemmering door voertuig',
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            legend: {
+                                display: false,
+                            },
+                            title: {
+                                display: false,
+                                text: ''
+                            },
+                            animation: {
+                                animateScale: true,
+                                animateRotate: true
+                            }
+                        }
+                       
+                    });
+                } else {
+                    chart.data.datasets[0].data = [num_Accident, num_GeneralObstruction, num_VehicleObstruction];
+                    chart.update();
+                }
+            }
+        });
+
+
+    </script>
+</head>
+
+  <body>
+    <!-- header -->
+    <div id="header" class="panel-dark-blue"><h2>GIS Tech 2020: TimeSlider Widget + Client Side Statistic query - 4.16</h2></div>
+    <div id="viewDiv"></div>
+    <div class="footer" role="contentinfo">
+      <!-- content of footer --><div class="esri-logo"></div>
+    </div>
+    <div id="timeSlider"></div>
+	<div id="infoDiv" class="esri-widget">
+      <div><b>Incidenten</b></div>
+      <br />
+      <div id="statsDiv" class="esri-widget"></div>
+      <br />
+      <div id="chartPanel"><canvas id="chart" class="chart"></canvas></div>
+    </div>
+    <template>
+        <pre style="font-family:Consolas;font-size:13px;color:#dadada;background:#1e1e1e;">
+<span style="color:#569cd6;">const</span>&nbsp;<span style="color:gainsboro;">countItems</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">onStatisticField</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;recordType&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">outStatisticFieldName</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;item_count&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">statisticType</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;count&quot;</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">};</span>
+
+<span style="color:gainsboro;">timeSlider</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">watch</span><span style="color:gainsboro;">(</span><span style="color:#d69d85;">&quot;timeExtent&quot;</span><span style="color:gainsboro;">,</span>&nbsp;<span style="color:#569cd6;">function</span>&nbsp;<span style="color:gainsboro;">()</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">layerView</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">effect</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">filter</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">timeExtent</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">timeSlider</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">timeExtent</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">geometry</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">view</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">extent</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">},</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">};</span>
+ 
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#569cd6;">const</span>&nbsp;<span style="color:gainsboro;">statQuery</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:gainsboro;">layerView</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">effect</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">filter</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">createQuery</span><span style="color:gainsboro;">();</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">statQuery</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">outStatistics</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:gainsboro;">[</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">countItems</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">num_VehicleObstruction</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">num_Accident</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">num_GeneralObstruction</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">];</span>
+ 
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">layer</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">.</span><span style="color:gainsboro;">queryFeatures</span><span style="color:gainsboro;">(</span><span style="color:gainsboro;">statQuery</span><span style="color:gainsboro;">)</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">.</span><span style="color:gainsboro;">then</span><span style="color:gainsboro;">(</span><span style="color:#569cd6;">function</span>&nbsp;<span style="color:gainsboro;">(</span><span style="color:#9cdcfe;">result</span><span style="color:gainsboro;">)</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">updateChart</span><span style="color:gainsboro;">(</span><span style="color:gainsboro;">result</span><span style="color:gainsboro;">);</span>
+        </pre>
+    </template>
+  </body>
+</html>

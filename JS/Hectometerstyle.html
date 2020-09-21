@@ -1,0 +1,516 @@
+﻿<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <!--
+    ArcGIS API for JavaScript, https://js.arcgis.com
+    For more information about the visualization-dictionary sample, read the original sample description at developers.arcgis.com.
+    https://developers.arcgis.com/javascript/latest/sample-code/visualization-dictionary/index.html
+    -->
+
+    <title>GIS Tech 2020: Hectometerborden - 4.16</title>
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+    <link rel="stylesheet"
+          href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.2.5/css/calcite-web.min.css" />
+    <link rel="stylesheet"
+          href="https://jsdev.arcgis.com/4.16/esri/themes/light/main.css" />
+    <script src="https://jsdev.arcgis.com/4.16/"></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        #header {
+            height: 60px;
+            padding: 10px 0px 0px 15px;
+        }
+
+        .footer {
+            padding-top: 0px;
+        }
+
+        #bodywrapper {
+            display: block;
+            height: 100%;
+        }
+
+        #sidepanel {
+            padding: 10px;
+            /* background-color: #FF9300; */
+            width: 300px;
+        }
+    </style>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/FeatureLayer",
+            "esri/renderers/DictionaryRenderer",
+            "esri/widgets/Expand",
+            "esri/widgets/Bookmarks",
+            "esri/webmap/Bookmark",
+            "esri/widgets/Legend"
+        ], function (
+            Map,
+            MapView,
+            FeatureLayer,
+            DictionaryRenderer,
+            Expand,
+            Bookmarks,
+            Bookmark,
+            Legend
+        ) {
+            const map = new Map({
+                basemap: "gray-vector"
+            });
+
+            const view = new MapView({
+                container: "viewDiv",
+                map: map,
+                popup: {
+                    autoOpenEnabled: true,
+                    dockEnabled: true,
+                    dockOptions: {
+                        // dock popup at bottom-right side of view
+                        buttonEnabled: false,
+                        breakpoint: false,
+                        position: "bottom-right"
+                    }
+                },
+                extent: {
+                    spatialReference: {
+                        wkid: 102100
+                    },
+                    xmax: 556782.71,
+                    xmin: 531787.80,
+                    ymax: 6880042.38,
+                    ymin: 6859022.19
+                }
+            });
+
+            view.when(function () {
+                // All the resources in the MapView and the map have loaded. Now execute additional processes
+                const popupTemplate = {
+                    // autocasts as new PopupTemplate()
+                    title: "Wegnummer: {AN1}{RijkswegNr}",
+                    content: [
+                        {
+                            // It is also possible to set the fieldInfos outside of the content
+                            // directly in the popupTemplate. If no fieldInfos is specifically set
+                            // in the content, it defaults to whatever may be set within the popupTemplate.
+                            type: "fields",
+                            fieldInfos: [
+                                {
+                                    fieldName: "AN1",
+                                    label: "AN1"
+                                },
+                                {
+                                    fieldName: "HECTOLETTE",
+                                    label: "Hectoletter"
+                                },
+                                {
+                                    fieldName: "WegZijdeKort",
+                                    label: "Wegzijde kort"
+                                },
+                                {
+                                    fieldName: "HectoWaard",
+                                    label: "Hectowaarde"
+                                }
+                            ]
+                        }
+                    ]
+                };
+
+                var dictionaryRendererSmall = new DictionaryRenderer({
+                    typeName: "dictionaryRendererSmall",
+                    url: "https://esrinederland.maps.arcgis.com/sharing/rest/content/items/471900964adf408c80190de35b84b836/",
+                    fieldMap: {
+                        an1: "AN1",
+                        hectoletter: "HECTOLETTE",
+                        rijkswegnummer: "RijkswegNr",
+                        hectowaarde: "HectoWaardDec",
+                        wegzijdekort: "WegZijdeKort"
+                    },
+                    config: {
+                        bigsize: "false",
+                        showonlykilometer: "true"
+                    },
+                    visualVariables: [
+                        {
+                            type: "size",
+                            valueExpression: "$view.scale",
+                            stops: [
+                                { value: 5000, size: 20 },
+                                { value: 7000 * 2, size: 15 },
+                                { value: 8000 * 4, size: 10 },
+                                { value: 10000 * 8, size: 5 },
+                                { value: 15000 * 16, size: 2 },
+                                { value: 20000 * 32, size: 1 }
+                            ]
+                        }
+                    ]
+                });
+
+                var dictionaryRendererBig = new DictionaryRenderer({
+                    typeName: "dictionaryRendererBig",
+                    url:
+                        "https://esrinederland.maps.arcgis.com/sharing/rest/content/items/471900964adf408c80190de35b84b836/",
+                    fieldMap: {
+                        an1: "AN1",
+                        hectoletter: "HECTOLETTE",
+                        rijkswegnummer: "RijkswegNr",
+                        hectowaarde: "HectoWaardDec",
+                        wegzijdekort: "WegZijdeKort"
+                    },
+                    config: {
+                        bigsize: "true",
+                        showonlykilometer: "true"
+                    }
+                });
+
+                const haloColor = "#373837";
+                const color = "#f0f0f0";
+                const clusterLabelThreshold = 5;
+
+                const clusterConfig = {
+                    type: "cluster",
+                    popupTemplate: {
+                        content: [
+                            {
+                                type: "text",
+                                text:
+                                    "Dit cluster vertegenwoordigt <b>{cluster_count}</b> hectometerborden."
+                            },
+                            {
+                                type: "text",
+                                text:
+                                    "De meeste zijn van het type <b>{cluster_type_AN1}</b> wegen."
+                            }
+                        ],
+                        fieldInfos: [
+                            {
+                                fieldName: "cluster_count",
+                                format: {
+                                    places: 0,
+                                    digitSeparator: true
+                                }
+                            }
+                        ]
+                    },
+
+                    clusterRadius: "120px",
+                    labelsVisible: true,
+                    labelingInfo: [
+                        {
+                            symbol: {
+                                type: "text",
+                                haloColor,
+                                haloSize: "1px",
+                                color: "#ffffff",
+                                font: {
+                                    family: "Arial",
+                                    size: "11px"
+                                },
+                                xoffset: 0,
+                                yoffset: 0
+                            },
+                            labelPlacement: "center-center",
+                            labelExpressionInfo: {
+                                expression:
+                                    "$feature.cluster_type_AN1"
+                            }
+                        },
+                        {
+                            symbol: {
+                                type: "text",
+                                haloColor,
+                                haloSize: "1px",
+                                color: "#ffffff",
+                                font: {
+                                    family: "Arial",
+                                    size: "11px"
+                                },
+                                xoffset: 0,
+                                yoffset: "30px"
+                            },
+                            labelPlacement: "center-center",
+                            labelExpressionInfo: {
+                                expression:
+                                    "$feature.cluster_count"
+                            }
+                        }
+                    ]
+                };
+
+                const nRoad = {
+                    type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                    size: 5,
+                    color: [239, 172, 0],
+                    outline: null
+                };
+                const aRoad = {
+                    type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                    size: 5,
+                    color: [255, 0, 0],
+                    outline: null
+                };
+                const otherSym = {
+                    type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                    size: 5,
+                    color: [40, 40, 40],
+                    outline: null
+                };
+                const clusterRenderer = {
+                    typeName: "clusterRenderer",
+                    type: "unique-value", // autocasts as new UniqueValueRenderer()
+                    legendOptions: {
+                        title: "Weg Type"
+                    },
+                    defaultSymbol: otherSym,
+                    defaultLabel: "Type",
+                    field: "AN1",
+                    uniqueValueInfos: [
+                        {
+                            value: "N",
+                            symbol: nRoad,
+                            label: "N Weg"
+                        },
+                        {
+                            value: "A",
+                            symbol: aRoad,
+                            label: "A Weg"
+                        }
+                    ]
+                };
+
+                const layer = new FeatureLayer({
+                    url: "https://services.arcgis.com/nSZVuSZjHpEZZbRo/ArcGIS/rest/services/Hectometerborden/FeatureServer",
+                    outFields: ["*"],
+                    popupTemplate: popupTemplate,
+                    renderer: clusterRenderer,
+                    featureReduction: clusterConfig,
+                    labelsVisible: true,
+                    labelingInfo: [
+                        {
+                            symbol: {
+                                type: "text",
+                                haloColor,
+                                haloSize: "1px",
+                                color,
+                                font: {
+                                    family: "Arial",
+                                    size: "11px"
+                                },
+                                xoffset: 0,
+                                yoffset: "-15px"
+                            },
+                            labelPlacement: "center-center",
+                            //labelExpressionInfo: {
+                            //  expression: "$feature.cluster_count"
+                            //}
+                        }
+                    ]
+                });
+
+                map.addMany([layer]);
+                view.watch("extend", function (newValue) {
+                    debugger;
+                });
+                view.watch("scale", function (newValue) {
+                    switch (true) {
+                        case (newValue <= 5000):
+                            if (layer.renderer.typeName == "dictionaryRendererBig")
+                                break;
+                            layer.featureReduction = null;
+                            layer.labelsVisible = false;
+                            layer.labelingInfo.labelExpressionInfo = null;
+                            layer.renderer = dictionaryRendererBig;
+                            break;
+                        case (newValue > 5000 && newValue <= 25000):
+                            if (layer.renderer.typeName == "dictionaryRendererSmall")
+                                break;
+                            layer.featureReduction = null;
+                            layer.labelsVisible = false;
+                            layer.labelingInfo.labelExpressionInfo = null;
+                            layer.renderer = dictionaryRendererSmall;
+                            break;
+                        default:
+                            if (layer.renderer.typeName == "clusterRenderer")
+                                break;
+                            layer.renderer = clusterRenderer;
+                            layer.featureReduction = clusterConfig;
+                            layer.labelingInfo.labelExpressionInfo = { expression: "$feature.cluster_count" };
+                            layer.labelsVisible = true;
+                            break;
+                    }
+                });
+
+                function queryFeatures(screenPoint) {
+                    const point = view.toMap(screenPoint);
+                    layer
+                        .queryFeatures({
+                            geometry: point,
+                            // distance and units will be null if basic query selected
+                            distance: 0.025,
+                            units: "miles",
+                            spatialRelationship: "intersects",
+                            returnGeometry: false,
+                            returnQueryGeometry: true,
+                            outFields: ["*"]
+                        })
+                        .then(function (featureSet) {
+                            // open popup of query result
+                            if (featureSet.features.length > 0) {
+                                view.popup.open({
+                                    location: point,
+                                    features: featureSet.features,
+                                    featureMenuOpen: true
+                                });
+                            }
+                        });
+                }
+
+                const bookmarks = new Bookmarks({
+                    view: view,
+                    bookmarks: [
+                        new Bookmark({
+                            name: "Amsterdam",
+                            extent: {
+                                spatialReference: {
+                                    wkid: 102100
+                                },
+                                xmax: 556782.71,
+                                xmin: 531787.80,
+                                ymax: 6880042.38,
+                                ymin: 6859022.19
+                            }
+                        }),
+                        new Bookmark({
+                            name: "Bodegraven",
+                            extent: {
+                                spatialReference: {
+                                    wkid: 102100
+                                },
+                                xmax: 535504.93,
+                                xmin: 523007.47,
+                                ymax: 6817956.14,
+                                ymin: 6807446.05
+                            }
+                        }),
+                        new Bookmark({
+                            name: "Burg-Haamstede",
+                            extent: {
+                                spatialReference: {
+                                    wkid: 102100
+                                },
+                                xmax: 418299.30,
+                                xmin: 415174.93,
+                                ymax: 6746803.21,
+                                ymin: 6744175.69
+                            }
+                        }),
+                        new Bookmark({
+                            name: "Zuidbroek",
+                            extent: {
+                                spatialReference: {
+                                    wkid: 102100
+                                },
+                                xmax: 769678.94,
+                                xmin: 763430.21,
+                                ymax: 7017218.18,
+                                ymin: 7011963.13
+                            }
+                        }),
+                    ]
+                });
+
+                var expand = new Expand({
+                    view: view,
+                    content: bookmarks,
+                    expanded: true
+                });
+
+                // Add the widget to the top-right corner of the view
+                view.ui.add(expand, {
+                    position: "top-right"
+                });
+
+                const newDiv = document.createElement("div");
+                newDiv.style.width = "1200px";
+                newDiv.style.backgroundColor = "white";
+                var img = document.createElement("img");
+                img.src = "dictonarystyle.svg";
+                img.style.height = "600px";
+                img.style.width = "100%";
+                newDiv.appendChild(img);
+                var expandSvg = new Expand({
+                    view: view,
+                    content: newDiv,
+                    expanded: false
+                });
+
+                // Add the widget to the top-left corner of the view
+                view.ui.add(expandSvg, {
+                    position: "top-left"
+                });
+
+                var temp = document.getElementsByTagName("template")[0];
+                var clon = temp.content.cloneNode(true);
+                const newDiv2 = document.createElement("div");
+                newDiv2.appendChild(clon);
+                var expandCode = new Expand({
+                    view: view,
+                    content: newDiv2,
+                    expanded: false
+                });
+
+                // Add the widget to the top-left corner of the view
+                view.ui.add(expandCode, {
+                    position: "top-left"
+                });
+
+
+            }, function (error) {
+                // Use the errback function to handle when the view doesn't load properly
+                console.log("The view's resources failed to load: ", error);
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <!-- header -->
+    <div id="header" class="panel-dark-blue"><h2>GIS Tech 2020: DictionaryRenderer + Clustering - 4.16</h2></div>
+    <div id="viewDiv"></div>
+    <div class="footer" role="contentinfo">
+        <!-- content of footer --><div class="esri-logo"></div>
+    </div>
+    <template>
+        <pre style="font-family:Consolas;font-size:13px;color:#dadada;background:#1e1e1e;"><span style="color:#569cd6;">var</span>&nbsp;<span style="color:gainsboro;">dictionaryRendererBig</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:#569cd6;">new</span>&nbsp;<span style="color:gainsboro;">DictionaryRenderer</span><span style="color:gainsboro;">({</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">typeName</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;dictionaryRendererBig&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">url</span><span style="color:gainsboro;">:</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#d69d85;">&quot;https://esrinederland.maps.arcgis.com/sharing/rest/content/items/471900964adf408c80190de35b84b836/&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">fieldMap</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">an1</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;AN1&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">hectoletter</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;HECTOLETTE&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">rijkswegnummer</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;RijkswegNr&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">hectowaarde</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;HectoWaard&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">wegzijdekort</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;WegZijdeKort&quot;</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">},</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">config</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">bigsize</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;true&quot;</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">}</span>
+<span style="color:gainsboro;">});</span></pre>
+    </template>
+</body>
+</html>

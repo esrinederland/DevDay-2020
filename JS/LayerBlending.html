@@ -1,0 +1,353 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+	<title>GIS Tech 2020: Multiple layer blending 4.16</title>
+	<link 
+      rel="stylesheet" 
+      href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.2.5/css/calcite-web.min.css"/>
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.16/esri/themes/light/main.css"
+    />
+	<style>
+        html,
+        body,
+        #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+        }
+        #messageDiv {
+        padding-left: 10px;
+        padding-right: 10px;
+        }
+	    #header
+        {
+        height:60px;
+        padding:10px 0px 0px 15px;
+
+
+        }
+        .footer
+        {
+        padding-top:0px;
+        }
+
+        #menu {
+            padding: 1em;
+        }
+
+        #waveSlider {
+            height: 50px;
+            margin-top: 2em;
+        }
+
+        .color-btn {
+            border: 1px solid rgb(173, 172, 172);
+            width: 40px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        #navy {
+            background-color: #25427c;
+        }
+
+        #green {
+            background-color: #039962;
+        }
+
+        #turqoise {
+            background-color: #a2f9f5;
+        }
+    </style>
+    <script src="https://js.arcgis.com/4.16/"></script>
+
+    <script>
+      require([
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/layers/VectorTileLayer",
+        "esri/Graphic",
+        "esri/layers/FeatureLayer",
+        "esri/layers/GraphicsLayer",
+        "esri/layers/GroupLayer",
+        "esri/geometry/geometryEngine",
+        "esri/widgets/Expand"
+      ], function (
+          WebMap,
+          MapView,
+          VectorTileLayer,
+          Graphic,
+          FeatureLayer,
+          GraphicsLayer,
+          GroupLayer,
+          geometryEngine,
+          Expand
+      ) {
+          const map = new WebMap({
+              basemap: {
+                  portalItem: {
+                      id: "f35ef07c9ed24020aadd65c8a65d3754" // modern antique vector tiles
+                  }
+              }
+          });
+
+          const vtLayer = new VectorTileLayer({
+              portalItem: {
+                  id: "2afe5b807fa74006be6363fd243ffb30" // gray vector tiles canvas
+              }
+          });
+
+          const countries = new FeatureLayer({
+              portalItem: {
+                  id: "e1f0dd70abcb4fceabbc43412e43ad4b" // boundaries of countries
+              }
+          });
+
+          // This group layer groups the gray canvas vector tiles and
+          // countries feature layer.
+          // With destination-over blendMode, the background layer covers
+          // the top layer. The top layer is put behind the destination layer.
+          // So when the app starts, the basemap layer will be shown over this layer
+          const groupLayer = new GroupLayer({
+              layers: [vtLayer, countries],
+              blendMode: "destination-over"
+          });
+          map.add(groupLayer);
+
+          const view = new MapView({
+              container: "viewDiv",
+              map: map,
+              extent: {
+                  spatialReference: {
+                      wkid: 102100
+                  },
+                  xmax: 556782.71,
+                  xmin: 531787.80,
+                  ymax: 6880042.38,
+                  ymin: 6859022.19
+              },
+              popup: {
+                  dockEnabled: true,
+                  dockOptions: {
+                      // Disables the dock button from the popup
+                      buttonEnabled: false,
+                      // Ignore the default sizes that trigger responsive docking
+                      breakpoint: false
+                  }
+              },
+          });
+
+          let layerView, animation;
+
+          // buffersGraphicsLayer will contain buffer polygons returned from the
+          // geometryEngine and a white polygon graphic covering the world extent.
+          // When the map loads it is added to the basemap.
+          // With destination-in blend mode, the contents of background layer is
+          // kept where it overlaps with top layer. Everything else is made transparent.
+          // in this case, the buffersGraphicsLayer will be displayed underneath
+          // modern antique vector tiles basemap
+          const buffersGraphicsLayer = new GraphicsLayer({
+              blendMode: "destination-in"
+          });
+          //Possible Values:"average"|"color-burn"|"color-dodge"|"color"|"darken"|"destination-atop"
+          //|"destination-in"|"destination-out"|"destination-over"|"difference"|"exclusion"|"hard-light"
+          //|"hue"|"invert"|"lighten"|"lighter"|"luminosity"|"minus"|"multiply"|"normal"|"overlay"|"plus"
+          //|"reflect"|"saturation"|"screen"|"soft-light"|"source-atop"|"source-in"|"source-out"
+          //|"vivid-light"|"xor"
+
+          document.querySelectorAll("input[name='blendmodeRadio']").forEach((input) => {
+              input.addEventListener('change', (evt) => {
+                  buffersGraphicsLayer.blendMode = evt.target.value;
+              });
+          });
+
+
+        map.loadAll().then(async () => {
+          addWorld();
+          // add the buffer graphicslayer to the basemap
+          map.basemap.baseLayers.add(buffersGraphicsLayer);
+
+          // get a reference ot the countries featurelayer's layerview
+          // layerview will be queried to get the intersecting country
+          // when user clicks on the map
+          layerView = await view.whenLayerView(countries);
+		  layerView.layer.renderer.symbol.color = "rgba(255, 214, 180, 0.9)";
+        });
+        view.ui.add("messageDiv", "top-right");
+        view.ui.add("menu", "top-right");
+
+
+        var temp = document.getElementsByTagName("template")[0];
+        var clon = temp.content.cloneNode(true);
+        const newDiv2 = document.createElement("div");
+        newDiv2.appendChild(clon);
+        var expandCode = new Expand({
+            view: view,
+            content: newDiv2,
+            expanded: false
+        });
+
+        // Add the widget to the top-right corner of the view
+        view.ui.add(expandCode, {
+            position: "top-left"
+        });
+
+        // when user clicks on a country, we will buffer the country
+        // with five distances via geomeryEngine
+        const bufferDistances = [0, 1, 2, 4, 6];
+        const symbol = {
+          type: "simple-fill",
+          color: "rgba(255, 255, 255, 0.4)",
+          outline: null
+        };
+
+        // listen to the view's click event
+        view.on("click", async (event) => {
+          // query the countries featurelayer for a country that intersects the point
+          // user clicked on
+          const {
+            features: [feature]
+          } = await layerView.queryFeatures({
+            geometry: view.toMap(event),
+            returnGeometry: true,
+            //outFields: ["*"]
+          });
+
+          buffersGraphicsLayer.graphics.removeAll();
+          animation && animation.remove();
+
+          let world = addWorld();
+
+          // if user clicked on a country and buffers are returned
+          // add the buffer polygons to the graphicslayer
+          if (feature) {
+            const bufferGraphics = bufferDistances.map((distance) => ({
+              geometry: geometryEngine.buffer(
+                feature.geometry,
+                distance,
+                "kilometers"
+              ),
+              symbol
+            }));
+
+            buffersGraphicsLayer.graphics.addMany(bufferGraphics);
+
+            // add a fade animation to show the highlight effect
+            // for the selected country
+            animation = fadeWorld(world);
+
+            // zoom to the highlighted country
+            view.goTo(
+              {
+                target: view.toMap(event),
+                extent: feature.geometry.extent.clone().expand(1.8)
+              },
+              { duration: 1000 }
+            );
+          }
+        });
+
+        function addWorld(world) {
+          world = new Graphic({
+            geometry: {
+              type: "extent",
+              xmin: -180,
+              xmax: 180,
+              ymin: -90,
+              ymax: 90
+            },
+            symbol: {
+              type: "simple-fill",
+              color: "rgba(0, 0, 0, 1)",
+              outline: null
+            }
+          });
+
+          buffersGraphicsLayer.graphics.add(world);
+          return world;
+        }
+
+        // add a fading animation when user clicks on a country
+        function fadeWorld(world) {
+          var timer;
+
+          // requestAnimationFrame method specifies "frame" function
+          // to perform an animation where the opacity of the world polygon graphic
+          // decreased by 0.1 until it is 0 or completely transparent
+          // then the animation is cancelled
+          function frame() {
+            const symbol = world.symbol.clone();
+            symbol.color.a = Math.max(0, symbol.color.a - 0.1);
+            world.symbol = symbol;
+            if (symbol.color.a > 0) {
+              timer = requestAnimationFrame(frame);
+            }
+          }
+
+          frame();
+          return {
+            remove() {
+              cancelAnimationFrame(timer);
+            }
+          };
+        }
+      });
+    </script>
+  </head>
+  <body>
+      <!-- header -->
+      <div id="header" class="panel-dark-blue"><h2>GIS Tech 2020: Multiple layer blending 4.16</h2></div>
+      <div id="viewDiv"></div>
+      <div class="footer" role="contentinfo">
+          <!-- content of footer --><div class="esri-logo"></div>
+      </div>
+      <div id="messageDiv" class="esri-widget esri-heading">
+          <h4 class="esri-heading">Klik op een gemeente</h4>
+      </div>
+      <div id="menu" class="esri-widget">
+          <h4>Blend Mode</h4>
+          <input type="radio"
+                 name="blendmodeRadio"
+                 value="source-atop"
+                 id="source-atop" /><label for="source-atop">source-atop</label><br />
+          <input type="radio"
+                 name="blendmodeRadio"
+                 value="destination-in"
+                 id="destination-in"
+                 checked /><label for="destination-in">destination-in</label><br />
+          <input type="radio"
+                 name="blendmodeRadio"
+                 value="xor"
+                 id="xor" /><label for="xor">xor</label><br />
+          <input type="radio"
+                 name="blendmodeRadio"
+                 value="hue"
+                 id="hue" /><label for="hue">hue</label><br />
+      </div>
+      <template>
+          <pre style="font-family:Consolas;font-size:13px;color:gainsboro;background:#1e1e1e;"><span style="color:#57a64a;">//&nbsp;buffersGraphicsLayer&nbsp;will&nbsp;contain&nbsp;buffer&nbsp;polygons&nbsp;returned&nbsp;from&nbsp;the</span>
+<span style="color:#57a64a;">//&nbsp;geometryEngine&nbsp;and&nbsp;a&nbsp;white&nbsp;polygon&nbsp;graphic&nbsp;covering&nbsp;the&nbsp;world&nbsp;extent.</span>
+<span style="color:#57a64a;">//&nbsp;When&nbsp;the&nbsp;map&nbsp;loads&nbsp;it&nbsp;is&nbsp;added&nbsp;to&nbsp;the&nbsp;basemap.</span>
+<span style="color:#57a64a;">//&nbsp;With&nbsp;destination-in&nbsp;blend&nbsp;mode,&nbsp;the&nbsp;contents&nbsp;of&nbsp;background&nbsp;layer&nbsp;is</span>
+<span style="color:#57a64a;">//&nbsp;kept&nbsp;where&nbsp;it&nbsp;overlaps&nbsp;with&nbsp;top&nbsp;layer.&nbsp;Everything&nbsp;else&nbsp;is&nbsp;made&nbsp;transparent.</span>
+<span style="color:#57a64a;">//&nbsp;in&nbsp;this&nbsp;case,&nbsp;the&nbsp;buffersGraphicsLayer&nbsp;will&nbsp;be&nbsp;displayed&nbsp;underneath</span>
+<span style="color:#57a64a;">//&nbsp;modern&nbsp;antique&nbsp;vector&nbsp;tiles&nbsp;basemap</span>
+<span style="color:#569cd6;">const</span>&nbsp;buffersGraphicsLayer&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:#569cd6;">new</span>&nbsp;GraphicsLayer({
+&nbsp;&nbsp;&nbsp;&nbsp;blendMode:&nbsp;<span style="color:#d69d85;">&quot;destination-in&quot;</span>
+});
+<span style="color:#57a64a;">//Possible&nbsp;Values:&quot;average&quot;|&quot;color-burn&quot;|&quot;color-dodge&quot;|&quot;color&quot;|&quot;darken&quot;|&quot;destination-atop&quot;</span>
+<span style="color:#57a64a;">//|&quot;destination-in&quot;|&quot;destination-out&quot;|&quot;destination-over&quot;|&quot;difference&quot;|&quot;exclusion&quot;|&quot;hard-light&quot;</span>
+<span style="color:#57a64a;">//|&quot;hue&quot;|&quot;invert&quot;|&quot;lighten&quot;|&quot;lighter&quot;|&quot;luminosity&quot;|&quot;minus&quot;|&quot;multiply&quot;|&quot;normal&quot;|&quot;overlay&quot;|&quot;plus&quot;</span>
+<span style="color:#57a64a;">//|&quot;reflect&quot;|&quot;saturation&quot;|&quot;screen&quot;|&quot;soft-light&quot;|&quot;source-atop&quot;|&quot;source-in&quot;|&quot;source-out&quot;</span>
+<span style="color:#57a64a;">//|&quot;vivid-light&quot;|&quot;xor&quot;</span></pre>
+      </template>
+  </body>
+</html>

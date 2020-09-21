@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>GIS Tech 2020: Swipe widget - 4.16</title>
+    <link rel="stylesheet"
+          href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.2.5/css/calcite-web.min.css" />
+    <link rel="stylesheet"
+          href="https://js.arcgis.com/4.16/esri/themes/light/main.css" />
+    <script src="https://js.arcgis.com/4.16/"></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        #header {
+            height: 60px;
+            padding: 10px 0px 0px 15px;
+        }
+
+        .footer {
+            padding-top: 0px;
+        }
+    </style>
+    <script>
+        require([
+            "esri/WebMap",
+            "esri/views/MapView",
+            "esri/widgets/Swipe",
+            "esri/layers/Layer",
+            "esri/widgets/LayerList"
+        ], function (WebMap, MapView, Swipe, Layer, LayerList) {
+            const map = new WebMap({
+                portalItem: {
+                id: "7aea6fa913a94176a1074edb40690318"
+                }
+            });
+
+            const view = new MapView({
+                container: "viewDiv",
+                map: map,
+                extent: { spatialReference: { wkid: 28992 }, ymax: 445839.0548831356, ymin: 435412.33402969385, xmax: 79930.18565534645, xmin: 55546.13688724891 }
+            });
+
+            let layer2006;
+            let layer2019;
+                /************************************************
+             *
+             * Create a layer from an existing Portal item hosted
+             * in ArcGIS Online using the ID of the item.
+             *
+             *************************************************/
+            Layer.fromPortalItem({
+                portalItem: {
+                    // autocasts as new PortalItem()
+                    id: "ff5278952ded489bae5dce4291a012dd"
+                }
+            })
+                .then((layer => {
+                    layer2006 = layer;
+                    map.add(layer2006);
+                }))
+                .catch(rejection);
+
+            Layer.fromPortalItem({
+                portalItem: {
+                    // autocasts as new PortalItem()
+                    id: "5c621f71daf34eef8d2973caa94a7b3b"
+                }
+            })
+                .then((layer => {
+                    layer2019 = layer;
+                    map.add(layer2019);
+                }))
+                .catch(rejection);
+
+            view.watch("scale", function (newValue) {
+                console.log("extent: { spatialReference: { wkid:" + view.spatialReference.wkid + " }, ymax: " + view.extent.ymax + ", ymin: " + view.extent.ymin + ", xmax: " + view.extent.xmax + ", xmin: " + view.extent.xmin + " }");
+            });
+
+            map.loadAll().then(async () => {
+                // create a new Swipe widget
+                const swipe = new Swipe({
+                    leadingLayers: [layer2006],
+                    trailingLayers: [layer2019],
+                    position: 35, // set position of widget to 35%
+                    view: view
+                });
+
+                // add the widget to the view
+                view.ui.add(swipe);
+
+                var layerList = new LayerList({
+                    view: view
+                });
+
+                // Add widget to the top right corner of the view
+                view.ui.add(layerList, "top-right");
+            });
+
+
+            function rejection(error) {
+                console.log("Layer failed to load: ", error);
+            }
+        });
+    </script>
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+
+  <body>
+    <!-- header -->
+    <div id="header" class="panel-dark-blue"><h2>GIS Tech 2020: Swipe widget - 4.16</h2></div>
+    <div id="viewDiv"></div>
+    <div class="footer" role="contentinfo">
+      <!-- content of footer --><div class="esri-logo"></div>
+    </div>
+    
+    <template>
+        
+    </template>
+  </body>
+</html>

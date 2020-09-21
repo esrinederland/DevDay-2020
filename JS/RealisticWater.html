@@ -1,0 +1,353 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>GIS Tech 2020: Realistic water visualization in 3D + Line of Sight widget - 4.16</title>
+    <link 
+      rel="stylesheet" 
+      href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.2.5/css/calcite-web.min.css"/>
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.16/esri/themes/light/main.css"
+    />
+    <script src="https://js.arcgis.com/4.16/"></script>
+    <style>
+      html,body
+      {
+        height:100%;
+
+      }
+      #header
+      {
+        height:60px;
+        padding:10px 0px 0px 15px;
+
+
+      }
+      .footer
+      {
+        padding-top:0px;
+      }
+      #bodywrapper
+      {
+        display:block;
+        height: 100%;
+      }
+      #sidepanel
+      {
+        padding:10px;
+        /* background-color: #FF9300; */
+        width:300px;
+
+      }
+
+    </style>
+    <script>
+      require([
+        "esri/WebScene",
+        "esri/views/SceneView",
+        "esri/layers/FeatureLayer",
+        "esri/widgets/Slider",
+        "esri/widgets/Expand",
+        "esri/widgets/LineOfSight"
+      ], function (WebScene, SceneView, FeatureLayer, Slider, Expand, LineOfSight) {
+        /***********************************
+         * Load webscene and create a SceneView
+         ***********************************/
+        const webscene = new WebScene({
+          portalItem: {
+            id: "8ede93ea9d8d48bc8cdcbea775936a13"
+          }
+        });
+
+        const view = new SceneView({
+          container: "viewDiv",
+          map: webscene,
+          qualityProfile: "high"
+        });
+
+        webscene.when(function () {
+          // set this property to display trees, buildings and other
+          // 3D objects reflected in the water.
+          view.environment.lighting.waterReflectionEnabled = true;
+        });
+
+        /***********************************
+         * Add polygon layer with water body
+         ***********************************/
+
+        const waterLayer = new FeatureLayer({
+          url:
+            "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Water_bodies/FeatureServer",
+          elevationInfo: {
+            mode: "absolute-height",
+            offset: 0
+          },
+          renderer: {
+            type: "simple",
+            symbol: {
+              type: "polygon-3d",
+              symbolLayers: [
+                {
+                  type: "water",
+                  waveDirection: 260,
+                  color: "#25427c",
+                  waveStrength: "moderate",
+                  waterbodySize: "medium"
+                }
+              ]
+            }
+          }
+        });
+
+        webscene.add(waterLayer);
+
+        view.ui.add("menu", "top-right");
+
+        const slider = new Slider({
+          container: "waveSlider",
+          min: 0,
+          max: 360,
+          visibleElements: {
+            labels: true
+          },
+          precision: 0,
+          values: [260]
+        });
+
+        slider.on("thumb-drag", function (event) {
+          const value = parseInt(event.value);
+          const renderer = waterLayer.renderer.clone();
+          renderer.symbol.symbolLayers.getItemAt(0).waveDirection = value;
+          waterLayer.renderer = renderer;
+        });
+
+        const waveStrengthRadio = document.getElementsByName(
+          "waveStrengthRadio"
+        );
+
+        for (let i = 0; i < waveStrengthRadio.length; i++) {
+          const element = waveStrengthRadio[i];
+          element.addEventListener("change", function (event) {
+            const renderer = waterLayer.renderer.clone();
+            renderer.symbol.symbolLayers.getItemAt(0).waveStrength =
+              event.target.value;
+            waterLayer.renderer = renderer;
+          });
+        }
+
+        var temp = document.getElementsByTagName("template")[0];
+        var clon = temp.content.cloneNode(true);
+        const newDiv2 = document.createElement("div");
+        newDiv2.appendChild(clon); 
+        var expandCode = new Expand({
+          view: view,
+          content: newDiv2,
+          expanded: false,
+          group: "top-left"
+        });
+
+        // Add the widget to the top-right corner of the view
+        view.ui.add(expandCode, {
+          position: "top-left"
+        });
+
+        
+        const newDivlineOfSight = document.createElement("div");
+        /**************************************
+        * Initialize the LineOfSight widget
+        **************************************/
+        const lineOfSight = new LineOfSight({
+            view: view,
+            container: newDivlineOfSight
+        });
+        // add an Expand widget to make the menu responsive
+        const expandlineOfSight = new Expand({
+            expandTooltip: "Expand line of sight widget",
+            view: view,
+            content: newDivlineOfSight,
+            expanded: false,
+            group: "top-left"
+        });
+
+        view.ui.add(expandlineOfSight, "top-left");
+        
+
+        function setWaterColor(color) {
+          const renderer = waterLayer.renderer.clone();
+          renderer.symbol.symbolLayers.getItemAt(0).color = color;
+          waterLayer.renderer = renderer;
+        }
+
+        function setWaterSize(size) {
+          const renderer = waterLayer.renderer.clone();
+          renderer.symbol.symbolLayers.getItemAt(0).waterbodySize = size;
+          waterLayer.renderer = renderer;
+        }
+
+        document.getElementById("navy").addEventListener("click", function () {
+          setWaterColor("#25427c");
+        });
+        document.getElementById("green").addEventListener("click", function () {
+          setWaterColor("#039962");
+        });
+        document.getElementById("turqoise").addEventListener("click", function () {
+            setWaterColor("#a2f9f5");
+        });
+
+        document.getElementById("large").addEventListener("click", function () {
+            setWaterSize("large");
+        });
+        document.getElementById("medium").addEventListener("click", function () {
+            setWaterSize("medium");
+        });
+        document.getElementById("small").addEventListener("click", function () {
+            setWaterSize("small");
+        });
+
+        document.getElementById("reflection").addEventListener("click", function (event) {
+            view.environment.lighting.waterReflectionEnabled = event.target.checked;
+        });
+      });
+    </script>
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      #menu {
+        padding: 1em;
+      }
+
+      #waveSlider {
+        height: 50px;
+        margin-top: 2em;
+      }
+
+      .color-btn {
+        border: 1px solid rgb(173, 172, 172);
+        width: 40px;
+        height: 20px;
+        cursor: pointer;
+      }
+
+      #navy {
+        background-color: #25427c;
+      }
+
+      #green {
+        background-color: #039962;
+      }
+
+      #turqoise {
+        background-color: #a2f9f5;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- header -->
+    <div id="header" class="panel-dark-blue"><h2>GIS Tech 2020: Realistic water visualization in 3D + Line of Sight widget - 4.16</h2></div>
+    <div id="viewDiv"></div>
+    <div class="footer" role="contentinfo">
+      <!-- content of footer --><div class="esri-logo"></div>
+    </div>
+    <div id="menu" class="esri-widget">
+      <h4>Wave direction</h4>
+      <div id="waveSlider"></div>
+      <h4>Wave strength</h4>
+      <input
+        type="radio"
+        name="waveStrengthRadio"
+        value="calm"
+        id="calm"
+      /><label for="calm">Calm</label><br />
+      <input
+        type="radio"
+        name="waveStrengthRadio"
+        value="rippled"
+        id="rippled"
+      /><label for="rippled">Rippled</label><br />
+      <input
+        type="radio"
+        name="waveStrengthRadio"
+        value="slight"
+        id="slight"
+      /><label for="slight">Slight</label><br />
+      <input
+        type="radio"
+        name="waveStrengthRadio"
+        value="moderate"
+        id="moderate"
+        checked
+      /><label for="moderate">Moderate</label><br />
+      <h4>Dominant color</h4>
+      <button id="navy" class="color-btn"></button>
+      <button id="green" class="color-btn"></button>
+      <button id="turqoise" class="color-btn"></button>
+      <br />
+      <br />
+      <input type="checkbox" id="reflection" checked /><label for="reflection">Water reflections</label>
+      <h4>Size</h4>
+      <input
+        type="radio"
+        name="SizeRadio"
+        value="large"
+        id="large"
+      /><label for="large">large</label><br />
+      <input
+        type="radio"
+        name="SizeRadio"
+        value="medium"
+        id="medium"
+        checked
+      /><label for="medium">medium</label><br />
+      <input
+        type="radio"
+        name="SizeRadio"
+        value="small"
+        id="small"
+      /><label for="small">small</label><br />
+    </div>
+    <template>
+        <pre style="font-family:Consolas;font-size:13px;color:#dadada;background:#1e1e1e;"><span style="color:gainsboro;">webscene</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">when</span><span style="color:gainsboro;">(</span><span style="color:#569cd6;">function</span>&nbsp;<span style="color:gainsboro;">()</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;<span style="color:#57a64a;">//&nbsp;set&nbsp;this&nbsp;property&nbsp;to&nbsp;display&nbsp;trees,&nbsp;buildings&nbsp;and&nbsp;other</span>
+&nbsp;&nbsp;<span style="color:#57a64a;">//&nbsp;3D&nbsp;objects&nbsp;reflected&nbsp;in&nbsp;the&nbsp;water.</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">view</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">environment</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">lighting</span><span style="color:gainsboro;">.</span><span style="color:gainsboro;">waterReflectionEnabled</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:#569cd6;">true</span><span style="color:gainsboro;">;</span>
+<span style="color:gainsboro;">});</span>
+ 
+<span style="color:#57a64a;">/***********************************
+&nbsp;*&nbsp;Add&nbsp;polygon&nbsp;layer&nbsp;with&nbsp;water&nbsp;body
+&nbsp;***********************************/</span>
+ 
+<span style="color:#569cd6;">const</span>&nbsp;<span style="color:gainsboro;">waterLayer</span>&nbsp;<span style="color:#b4b4b4;">=</span>&nbsp;<span style="color:#569cd6;">new</span>&nbsp;<span style="color:gainsboro;">FeatureLayer</span><span style="color:gainsboro;">({</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">url</span><span style="color:gainsboro;">:</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#d69d85;">&quot;https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Water_bodies/FeatureServer&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">elevationInfo</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">mode</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;absolute-height&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">offset</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#b5cea8;">0</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">},</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">renderer</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">type</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;simple&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">symbol</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">type</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;polygon-3d&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">symbolLayers</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:gainsboro;">[</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">{</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">type</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;water&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">waveDirection</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#b5cea8;">260</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">color</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;#25427c&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">waveStrength</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;moderate&quot;</span><span style="color:gainsboro;">,</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">waterbodySize</span><span style="color:gainsboro;">:</span>&nbsp;<span style="color:#d69d85;">&quot;medium&quot;</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">}</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">]</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:gainsboro;">}</span>
+&nbsp;&nbsp;<span style="color:gainsboro;">}</span>
+<span style="color:gainsboro;">});</span></pre>
+    </template>
+  </body>
+</html>
